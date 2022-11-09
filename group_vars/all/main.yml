@@ -1,0 +1,10 @@
+---
+
+hadoop_version: "3.3.1"
+activation_version: "1.2.0"
+node_ip01: "CHANGEME"
+node_ip02: "CHANGEME"
+node_ip03: "CHANGEME"
+node_name01: "CHANGEME"
+node_name02: "CHANGEME"
+node_name03: "CHANGEME"
