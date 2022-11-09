@@ -30,11 +30,13 @@
   - name: Install packages
     ansible.builtin.apt:
       name:
+        - acl
+        - htop
         - nano
         - sysstat
         - mlocate
         - net-tools
-        - bind-utils
+        - dnsutils
         - tcpdump
         - curl
         - wget
@@ -46,7 +48,7 @@
 
   - name: Copy hosts file
     ansible.builtin.template:
-      src: files/hosts.j2
+      src: hosts.j2
       dest: /etc/hosts
 
   - name: Rename Hostnames
@@ -93,24 +95,27 @@
     - hadoop_install
   tasks:
 
-  - name: Download & extract archive
-    become: true
-    ansible.builtin.unarchive:
-      src: https://dlcdn.apache.org/hadoop/common/hadoop-{{ hadoop_version }}/hadoop-{{ hadoop_version }}.tar.gz
-      dest: /usr/local/hadoop
-      remote_src: yes
-      mode: '755'
-      owner: hadoop
-      group: hadoop
-
   - name: Create logs directory
     become: true
     ansible.builtin.file:
       path: /usr/local/hadoop/logs
       state: directory
+      recurse: yes 
       mode: '755'
       owner: hadoop
       group: hadoop
+
+  - name: Download & extract archive
+    become: true
+    ansible.builtin.unarchive:
+      src: https://dlcdn.apache.org/hadoop/common/hadoop-{{ hadoop_version }}/hadoop-{{ hadoop_version }}.tar.gz
+      dest: /usr/local/hadoop/
+      remote_src: yes
+      mode: '755'
+      owner: hadoop
+      group: hadoop
+      extra_opts: 
+        --strip-components=1
 
   - name: Edit hadoop bash profile
     become: true
@@ -130,6 +135,7 @@
 
 
 - name: Hadoop configuration
+  become: true
   hosts: all
   vars:
     ansible_python_interpreter: /usr/bin/python3.9
@@ -151,7 +157,7 @@
   - name: Edit hadoop-env.sh
     ansible.builtin.lineinfile:
       dest: /usr/local/hadoop/etc/hadoop/hadoop-env.sh
-      line: {{ item }}
+      line: "{{ item }}"
     with_items:
       - export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
       - export HADOOP_CLASSPATH+=" $HADOOP_HOME/lib/*.jar"
@@ -163,8 +169,8 @@
 
   - name: Copy xml files
     ansible.builtin.template:
-      src: {{ item }}
-      dest: /usr/local/hadoop/etc/hadoop/
+      src: "{{ item }}"
+      dest: /usr/local/hadoop/etc/hadoop/{{ item | basename | regex_replace('\.j2$', '') }}
     with_items:
       - core-site.xml.j2
       - hdfs-site.xml.j2
@@ -201,21 +207,7 @@
       state: started
 
 
-- name: Post install configuration
-  become: true
-  hosts: all
-  vars:
-    ansible_python_interpreter: /usr/bin/python3.9
-  tags:
-    - post_install
-  tasks:
-
-  - name: Delete artifacts
-    ansible.builtin.file:
-      path: /usr/local/hadoop-{{ hadoop_version }}.tar.gz
-      state: absent
-
-# Hadoop initial commands
+# Hadoop initial commands as hadoop user
 #/usr/local/hadoop/bin/hdfs namenode -format
 #/usr/local/hadoop/sbin/start-dfs.sh
 #/usr/local/hadoop/sbin/start-yarn.sh
