@@ -1,3 +1,11 @@
+- name: Check OS
+  assert:
+    that:
+    - ansible_facts['os_family'] == "Debian"
+    - ansible_facts['distribution_major_version'] == "11"
+    fail_msg: Host {{ ansible_hostname }} does not meet minimal reqs
+
+
 - name: Preparing hosts
   become: true
   hosts: all
@@ -175,7 +183,6 @@
       - core-site.xml.j2
       - hdfs-site.xml.j2
       - mapred-site.xml.j2
-      - yarn-site.xml.j2
 
   - name: Edit number of workers
     ansible.builtin.blockinfile:
@@ -185,29 +192,56 @@
         node03
 
 
-- name: Systemd configuration
+- name: Hadoop slaves configuration
+  become: true
+  hosts: slaves
+  vars:
+    ansible_python_interpreter: /usr/bin/python3.9
+  tags:
+    - hadoop_slaves
+  tasks:
+
+  - name: Copy xml files
+    ansible.builtin.template:
+      src: yarn-site.xml.j2
+      dest: /usr/local/hadoop/etc/hadoop/yarn-site.xml
+
+
+- name: Hadoop start up
   become: true
   hosts: primary
   vars:
     ansible_python_interpreter: /usr/bin/python3.9
   tags:
-    - systemd
+    - hadoop_start
   tasks:
 
-  - name: Copy unit file
+  - name: Check if namenode formatted
+    become: true
+    ansible.builtin.stat:
+      path: /hadoop/hdfs/namenode/current
+    register: path
+
+  - name: Format namenode
+    become: true
+    become_user: hadoop
+    command: '/usr/local/hadoop/bin/hdfs namenode -format'
+    when: not path.stat.exists
+
+  - name: Copy unit files
     ansible.builtin.template:
-      src: hadoop.service.j2
-      dest: /etc/systemd/system/hadoop.service
+      src: "{{ item }}"
+      dest: /etc/systemd/system/{{ item | basename | regex_replace('\.j2$', '') }}
+    with_items:
+      - hadoop-dfs.service.j2
+      - hadoop-yarn.service.j2
 
   - name: Start Hadoop
     ansible.builtin.systemd:
       daemon_reload: yes
-      name: hadoop.service
+      name: "{{ item }}"
       enabled: yes
       state: started
-
-
-# Hadoop initial commands as hadoop user
-#/usr/local/hadoop/bin/hdfs namenode -format
-#/usr/local/hadoop/sbin/start-dfs.sh
-#/usr/local/hadoop/sbin/start-yarn.sh
+    with_items:
+      - hadoop-dfs.service
+      - hadoop-yarn.service

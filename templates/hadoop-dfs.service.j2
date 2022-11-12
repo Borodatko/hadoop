@@ -1,0 +1,17 @@
+[Unit]
+Description=Hadoop DFS service
+After=network.target
+
+[Service]
+Type=forking
+User=hadoop
+Group=hadoop
+ExecStart=/usr/local/hadoop/sbin/start-dfs.sh
+ExecStop=/usr/local/hadoop/sbin/stop-dfs.sh
+TimeoutStartSec=1min
+Restart=no
+RestartSec=30
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

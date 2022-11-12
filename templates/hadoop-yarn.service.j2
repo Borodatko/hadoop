@@ -1,13 +1,13 @@
 [Unit]
-Description=Hdfs service
+Description=Hadoop YARN service
 After=network.target
 
 [Service]
 Type=forking
 User=hadoop
 Group=hadoop
-ExecStart=/usr/local/hadoop/sbin/start-all.sh
-ExecStop=/usr/local/hadoop/sbin/stop-all.sh
+ExecStart=/usr/local/hadoop/sbin/start-yarn.sh
+ExecStop=/usr/local/hadoop/sbin/stop-yarn.sh
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 
