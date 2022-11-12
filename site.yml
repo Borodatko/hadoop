@@ -1,10 +1,4 @@
-- name: Check OS
-  assert:
-    that:
-    - ansible_facts['os_family'] == "Debian"
-    - ansible_facts['distribution_major_version'] == "11"
-    fail_msg: Host {{ ansible_hostname }} does not meet minimal reqs
-
+---
 
 - name: Preparing hosts
   become: true
@@ -14,6 +8,13 @@
   tags:
     - preinstall
   tasks:
+
+  - name: Check OS
+    assert:
+      that:
+        - ansible_facts['os_family'] == "Debian"
+        - ansible_facts['distribution_major_version'] == "11"
+      fail_msg: Host {{ ansible_hostname }} does not meet minimal reqs
 
   - name: Set timezone
     community.general.timezone:
