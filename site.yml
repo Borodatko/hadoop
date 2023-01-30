@@ -1,5 +1,4 @@
 ---
-
 - name: Preparing hosts
   become: true
   hosts: all
@@ -9,60 +8,62 @@
     - preinstall
   tasks:
 
-  - name: Check OS
-    assert:
-      that:
-        - ansible_facts['os_family'] == "Debian"
-        - ansible_facts['distribution_major_version'] == "11"
-      fail_msg: Host {{ ansible_hostname }} does not meet minimal reqs
+    - name: Check OS
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == "Debian"
+          - ansible_facts['distribution_major_version'] == "11"
+        fail_msg: Host {{ ansible_hostname }} does not meet minimal reqs
 
-  - name: Set timezone
-    community.general.timezone:
-      name: Europe/Moscow
+    - name: Set timezone
+      community.general.timezone:
+        name: Europe/Moscow
 
-  - name: Edit /etc/profile
-    blockinfile:
-      path: /etc/profile
-      block: |
-        shopt -s histappend
-        export HISTSIZE=10000
-        export HISTTIMEFORMAT="%h %d %H:%M:%S "
-        PROMPT_COMMAND='history -a'
-        export HISTIGNORE="ls:ll:history:w:htop:pwd"
+    - name: Edit /etc/profile
+      ansible.builtin.blockinfile:
+        path: /etc/profile
+        block: |
+          shopt -s histappend
+          export HISTSIZE=10000
+          export HISTTIMEFORMAT="%h %d %H:%M:%S "
+          PROMPT_COMMAND='history -a'
+          export HISTIGNORE="ls:ll:history:w:htop:pwd"
 
-  - name: Update repository && upgrade packages
-    ansible.builtin.apt:
-      name: "*"
-      state: latest
-      update_cache: yes
+    - name: Update repository && upgrade packages
+      ansible.builtin.apt:
+        name: "*"
+        state: present
+        update_cache: true
 
-  - name: Install packages
-    ansible.builtin.apt:
-      name:
-        - acl
-        - htop
-        - nano
-        - sysstat
-        - mlocate
-        - net-tools
-        - dnsutils
-        - tcpdump
-        - curl
-        - wget
-        - tar
-        - zip
-        - unzip
-        - default-jdk
-        - default-jre
+    - name: Install packages
+      ansible.builtin.apt:
+        name:
+          - acl
+          - htop
+          - nano
+          - sysstat
+          - mlocate
+          - net-tools
+          - dnsutils
+          - tcpdump
+          - curl
+          - wget
+          - tar
+          - zip
+          - unzip
+          - default-jdk
+          - default-jre
+        state: present
 
-  - name: Copy hosts file
-    ansible.builtin.template:
-      src: hosts.j2
-      dest: /etc/hosts
+    - name: Copy hosts file
+      ansible.builtin.template:
+        src: hosts.j2
+        dest: /etc/hosts
+        mode: '0644'
 
-  - name: Rename Hostnames
-    ansible.builtin.hostname:
-      name: "{{ inventory_hostname }}"
+    - name: Rename Hostnames
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
 
 
 - name: SSH configuration
@@ -74,27 +75,28 @@
     - ssh
   tasks:
 
-  - name: Add Hadoop user
-    ansible.builtin.user:
-      name: hadoop
-      shell: /bin/bash
-      password: $6$16tqq6yLf84JVQBb$K7B911P/4.xyvzPBlMVvfYnXDKKXEF6IPUKL3T4C4J4mgzvft2ZBTe74yqwWbyJ649QzVpbgKEWnkX.PC8h9k.
-      generate_ssh_key: yes
-      ssh_key_bits: 2048
-      ssh_key_file: .ssh/id_rsa
+    - name: Add Hadoop user
+      ansible.builtin.user:
+        name: hadoop
+        shell: /bin/bash
+        password: $6$16tqq6yLf84JVQBb$K7B911P/4.xyvzPBlMVvfYnXDKKXEF6IPUKL3T4C4J4mgzvft2ZBTe74yqwWbyJ649QzVpbgKEWnkX.PC8h9k.
+        generate_ssh_key: true
+        ssh_key_bits: 2048
+        ssh_key_file: .ssh/id_rsa
 
-  - name: Get public key from primary node
-    ansible.builtin.fetch:
-      src: /home/hadoop/.ssh/id_rsa.pub
-      dest: /tmp/id_rsa.pub
-      flat: yes
-    when: inventory_hostname == "node01"
+    - name: Get public key from primary node
+      ansible.builtin.fetch:
+        src: /home/hadoop/.ssh/id_rsa.pub
+        dest: /tmp/id_rsa.pub
+        flat: true
+        mode: '0600'
+      when: inventory_hostname == "node01"
 
-  - name: Put public key to nodes
-    ansible.builtin.copy:
-      src: /tmp/id_rsa.pub
-      dest: /home/hadoop/.ssh/authorized_keys
-
+    - name: Put public key to nodes
+      ansible.builtin.copy:
+        src: /tmp/id_rsa.pub
+        dest: /home/hadoop/.ssh/authorized_keys
+        mode: '0600'
 
 - name: Hadoop installation
   hosts: all
@@ -104,43 +106,43 @@
     - hadoop_install
   tasks:
 
-  - name: Create logs directory
-    become: true
-    ansible.builtin.file:
-      path: /usr/local/hadoop/logs
-      state: directory
-      recurse: yes 
-      mode: '755'
-      owner: hadoop
-      group: hadoop
+    - name: Create logs directory
+      become: true
+      ansible.builtin.file:
+        path: /usr/local/hadoop/logs
+        state: directory
+        recurse: true
+        mode: '755'
+        owner: hadoop
+        group: hadoop
 
-  - name: Download & extract archive
-    become: true
-    ansible.builtin.unarchive:
-      src: https://dlcdn.apache.org/hadoop/common/hadoop-{{ hadoop_version }}/hadoop-{{ hadoop_version }}.tar.gz
-      dest: /usr/local/hadoop/
-      remote_src: yes
-      mode: '755'
-      owner: hadoop
-      group: hadoop
-      extra_opts: 
-        --strip-components=1
+    - name: Download & extract archive
+      become: true
+      ansible.builtin.unarchive:
+        src: https://dlcdn.apache.org/hadoop/common/hadoop-{{ hadoop_version }}/hadoop-{{ hadoop_version }}.tar.gz
+        dest: /usr/local/hadoop/
+        remote_src: true
+        mode: '755'
+        owner: hadoop
+        group: hadoop
+        extra_opts:
+          --strip-components=1
 
-  - name: Edit hadoop bash profile
-    become: true
-    become_user: hadoop
-    ansible.builtin.blockinfile:
-      path: /home/hadoop/.bashrc
-      block: |
-        export HADOOP_HOME=/usr/local/hadoop
-        export HADOOP_INSTALL=$HADOOP_HOME
-        export HADOOP_MAPRED_HOME=$HADOOP_HOME
-        export HADOOP_COMMON_HOME=$HADOOP_HOME
-        export HADOOP_HDFS_HOME=$HADOOP_HOME
-        export YARN_HOME=$HADOOP_HOME
-        export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native
-        export PATH=$PATH:$HADOOP_HOME/sbin:$HADOOP_HOME/bin
-        export HADOOP_OPTS="-Djava.library.path=$HADOOP_HOME/lib/native"
+    - name: Edit hadoop bash profile
+      become: true
+      become_user: hadoop
+      ansible.builtin.blockinfile:
+        path: /home/hadoop/.bashrc
+        block: |
+          export HADOOP_HOME=/usr/local/hadoop
+          export HADOOP_INSTALL=$HADOOP_HOME
+          export HADOOP_MAPRED_HOME=$HADOOP_HOME
+          export HADOOP_COMMON_HOME=$HADOOP_HOME
+          export HADOOP_HDFS_HOME=$HADOOP_HOME
+          export YARN_HOME=$HADOOP_HOME
+          export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native
+          export PATH=$PATH:$HADOOP_HOME/sbin:$HADOOP_HOME/bin
+          export HADOOP_OPTS="-Djava.library.path=$HADOOP_HOME/lib/native"
 
 
 - name: Hadoop configuration
@@ -152,45 +154,47 @@
     - hadoop_config
   tasks:
 
-  - name: Create directories
-    ansible.builtin.file:
-      path: "/hadoop/hdfs/{{ item }}"
-      state: directory
-      mode: '0755'
-      owner: hadoop
-      group: hadoop
-    with_items:
-      - namenode
-      - datanode
+    - name: Create directories
+      ansible.builtin.file:
+        path: "/hadoop/hdfs/{{ item }}"
+        state: directory
+        mode: '0755'
+        owner: hadoop
+        group: hadoop
+      with_items:
+        - namenode
+        - datanode
 
-  - name: Edit hadoop-env.sh
-    ansible.builtin.lineinfile:
-      dest: /usr/local/hadoop/etc/hadoop/hadoop-env.sh
-      line: "{{ item }}"
-    with_items:
-      - export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-      - export HADOOP_CLASSPATH+=" $HADOOP_HOME/lib/*.jar"
+    - name: Edit hadoop-env.sh
+      ansible.builtin.lineinfile:
+        dest: /usr/local/hadoop/etc/hadoop/hadoop-env.sh
+        line: "{{ item }}"
+      with_items:
+        - export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+        - export HADOOP_CLASSPATH+=" $HADOOP_HOME/lib/*.jar"
 
-  - name: Download activation file
-    ansible.builtin.get_url:
-      url: https://jcenter.bintray.com/javax/activation/javax.activation-api/{{ activation_version }}/javax.activation-api-{{ activation_version }}.jar
-      dest: /usr/local/hadoop/lib/
+    - name: Download activation file
+      ansible.builtin.get_url:
+        url: https://jcenter.bintray.com/javax/activation/javax.activation-api/{{ activation_version }}/javax.activation-api-{{ activation_version }}.jar
+        dest: /usr/local/hadoop/lib/
+        mode: '0644'
 
-  - name: Copy xml files
-    ansible.builtin.template:
-      src: "{{ item }}"
-      dest: /usr/local/hadoop/etc/hadoop/{{ item | basename | regex_replace('\.j2$', '') }}
-    with_items:
-      - core-site.xml.j2
-      - hdfs-site.xml.j2
-      - mapred-site.xml.j2
+    - name: Copy xml files
+      ansible.builtin.template:
+        src: "{{ item }}"
+        dest: /usr/local/hadoop/etc/hadoop/{{ item | basename | regex_replace('\.j2$', '') }}
+        mode: '0644'
+      with_items:
+        - core-site.xml.j2
+        - hdfs-site.xml.j2
+        - mapred-site.xml.j2
 
-  - name: Edit number of workers
-    ansible.builtin.blockinfile:
-      path: /usr/local/hadoop/etc/hadoop/workers
-      block: |
-        node02
-        node03
+    - name: Edit number of workers
+      ansible.builtin.blockinfile:
+        path: /usr/local/hadoop/etc/hadoop/workers
+        block: |
+          node02
+          node03
 
 
 - name: Hadoop slaves configuration
@@ -202,11 +206,11 @@
     - hadoop_slaves
   tasks:
 
-  - name: Copy xml files
-    ansible.builtin.template:
-      src: yarn-site.xml.j2
-      dest: /usr/local/hadoop/etc/hadoop/yarn-site.xml
-
+    - name: Copy xml files
+      ansible.builtin.template:
+        src: yarn-site.xml.j2
+        dest: /usr/local/hadoop/etc/hadoop/yarn-site.xml
+        mode: '0644'
 
 - name: Hadoop start up
   become: true
@@ -217,32 +221,33 @@
     - hadoop_start
   tasks:
 
-  - name: Check if namenode formatted
-    become: true
-    ansible.builtin.stat:
-      path: /hadoop/hdfs/namenode/current
-    register: path
+    - name: Check if namenode formatted
+      become: true
+      ansible.builtin.stat:
+        path: /hadoop/hdfs/namenode/current
+      register: path
 
-  - name: Format namenode
-    become: true
-    become_user: hadoop
-    command: '/usr/local/hadoop/bin/hdfs namenode -format'
-    when: not path.stat.exists
+    - name: Format namenode
+      become: true
+      become_user: hadoop
+      ansible.builtin.command: '/usr/local/hadoop/bin/hdfs namenode -format'
+      when: not path.stat.exists
 
-  - name: Copy unit files
-    ansible.builtin.template:
-      src: "{{ item }}"
-      dest: /etc/systemd/system/{{ item | basename | regex_replace('\.j2$', '') }}
-    with_items:
-      - hadoop-dfs.service.j2
-      - hadoop-yarn.service.j2
+    - name: Copy unit files
+      ansible.builtin.template:
+        src: "{{ item }}"
+        dest: /etc/systemd/system/{{ item | basename | regex_replace('\.j2$', '') }}
+        mode: '0644'
+      with_items:
+        - hadoop-dfs.service.j2
+        - hadoop-yarn.service.j2
 
-  - name: Start Hadoop
-    ansible.builtin.systemd:
-      daemon_reload: yes
-      name: "{{ item }}"
-      enabled: yes
-      state: started
-    with_items:
-      - hadoop-dfs.service
-      - hadoop-yarn.service
+    - name: Start Hadoop
+      ansible.builtin.systemd:
+        daemon_reload: true
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      with_items:
+        - hadoop-dfs.service
+        - hadoop-yarn.service
